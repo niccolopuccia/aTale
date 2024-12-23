@@ -5,55 +5,200 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Camera Feed</title>
     <style>
-        body {
+        /* Global Styling */
+        * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #121212;
+            color: #fff;
+        }
+
+        /* Navbar Styling */
+        nav {
+            width: 100%;
+            padding: 15px 20px;
+            background-color: #1e1e1e;
             display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+            position: fixed;
+            top: 0;
+            z-index: 1000;
+        }
+        nav h1 {
+            font-size: 24px;
+        }
+        nav ul {
+            list-style: none;
+            display: flex;
+            margin: 0;
+            padding: 0;
+        }
+        nav ul li {
+            margin-left: 20px;
+        }
+        nav ul li a {
+            text-decoration: none;
+            color: #fff;
+            font-size: 16px;
+            transition: color 0.3s;
+        }
+        nav ul li a:hover {
+            color: #007BFF;
+        }
+
+        /* Hero Section */
+        .hero {
+            width: 100%;
+            text-align: center;
+            padding: 100px 20px 10px;
+            background: linear-gradient(to bottom, #1e1e1e, #121212);
+        }
+        .hero h2 {
+            font-size: 36px;
+            margin-bottom: 10px;
+            color: #007BFF;
+        }
+        .hero p {
+            font-size: 18px;
+            color: #aaa;
+            max-width: 600px;
+            margin: 10px auto;
+        }
+
+        /* Main Container */
+        .container {
+            display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            background-color: #f0f0f0;
+            padding: 20px;
         }
         .camera-box {
-            width: 620px;
-            height: 540px;
+            width: 640px;
+            height: 480px;
             border: 2px solid #333;
             display: flex;
             justify-content: center;
             align-items: center;
             background-color: #000;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .camera-box:hover {
+            transform: scale(1.02);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.9);
         }
         img {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
+
+        /* Button Styling */
+        .button-container {
+            margin-top: 30px;
+        }
+        button {
+            padding: 12px 25px;
+            font-size: 18px;
+            cursor: pointer;
+            background-color: #007BFF;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+            transition: background-color 0.3s, box-shadow 0.3s, transform 0.2s;
+        }
+        button:hover {
+            background-color: #0056b3;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.6);
+            transform: translateY(-3px);
+        }
+
+        /* Footer Styling */
+        footer {
+            width: 100%;
+            text-align: center;
+            padding: 10px 10px;
+            background-color: #1e1e1e;
+            color: #aaa;
+            position: fixed;
+            bottom: 0;
+        }
+        footer a {
+            text-decoration: none;
+            color: #007BFF;
+            transition: color 0.3s;
+        }
+        footer a:hover {
+            color: #0056b3;
+        }
     </style>
 </head>
 <body>
-    <div class="camera-box">
-        <img id="camera-feed" src="{{ url_for('video_feed') }}" alt="Camera Feed">
+    <!-- Navbar -->
+    <nav>
+        <h1></h1>
+        <ul>
+            <li><a href="#">Home</a></li>
+            <li><a href="#">About</a></li>
+            <li><a href="#">Contact</a></li>
+        </ul>
+    </nav>
+
+    <!-- Hero Section -->
+    <div class="hero">
+        <h2>Welcome to aTale</h2>
+        <p> There are stories behind things. Use the camera to let the tale unfold.</p>
     </div>
 
+    <!-- Main Content -->
+    <div class="container">
+        <div class="camera-box">
+            <img id="camera-feed" src="{{ url_for('video_feed') }}" alt="Camera Feed">
+        </div>
+
+        <div class="button-container">
+            <button id="recognize-button">Tell a Tale</button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        © 2024 <a href="#">aTale</a>. All rights reserved.
+    </footer>
+
+    <!-- Audio Player -->
     <audio id="audio-player"></audio>
     <script>
-        // Poll the server for recognized faces
-        compared_person = "Unknown"
-        setInterval(async () => {
-            const response = await fetch('/current_recognition'); // Add this endpoint to your server
-            const recognizedPerson = await response.text();
-            if (recognizedPerson && recognizedPerson !== "Unknown" && recognizedPerson != compared_person) {
-                playSound(recognizedPerson);
+        document.getElementById("recognize-button").addEventListener("click", async () => {
+            try {
+                const response = await fetch('/current_recognition');
+                const recognizedPerson = await response.text();
+                
+                if (recognizedPerson && recognizedPerson !== "Unknown") {
+                    playSound(recognizedPerson);
+                }
+            } catch (error) {
+                print("Error fetching recognition:", error);
             }
-            compared_person = recognizedPerson
-        }, 2000);
+        });
 
         function playSound(name) {
             const audioPlayer = document.getElementById('audio-player');
             const soundUrl = `/play_sound/${name}`;
             audioPlayer.src = soundUrl;
-            console.log(audioPlayer.src); // Debug the source URL
-            audioPlayer.play();
+            audioPlayer.play().catch(err => {
+                print("Audio playback error:", err);
+            });
         }
     </script>
 </body>

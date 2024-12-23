@@ -1,3 +1,4 @@
+import shutil
 import time
 import cv2
 import numpy as np
@@ -43,6 +44,18 @@ def save_frame(frame, i):
         return filepath
     return None
 
+def clear_folder(folder_path):
+    if os.path.exists(folder_path):
+        for filename in os.listdir(folder_path):
+            file_path = os.path.join(folder_path, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print(f"Failed to delete {file_path}: {e}")
+
 def predict(filepath):
     frame = cv2.imread(filepath)
     if frame is None:
@@ -74,7 +87,6 @@ def predict(filepath):
 
     return ", ".join(face_names) if face_names else "Unknown"
 
-# Example sound files for faces
 face_to_sound = {
     "Nicco": "/Users/niccolo/Desktop/aTale/aTale/recordings/Audio1.mp3",
 }
@@ -85,11 +97,11 @@ def index():
     return render_template('index2.html')
 
 camera = cv2.VideoCapture(0)
-recognized_person = "Unknown"  # Initial value
+recognized_person = "Unknown"
 
 
 def generate_frames():
-    global recognized_person  # Declare the variable as global
+    global recognized_person
     start_time = time.time()
     i = 0
 
@@ -102,7 +114,7 @@ def generate_frames():
         if time.time() - start_time >= 2:
             filepath = save_frame(frame, i)
             if filepath:
-                recognized_person = predict(filepath)  # Update global variable
+                recognized_person = predict(filepath)
             start_time = time.time()
             i += 1
 
@@ -113,6 +125,9 @@ def generate_frames():
         ret, buffer = cv2.imencode('.jpg', frame)
         frame_bytes = buffer.tobytes()
         yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+        # Clear folder every 10 iterations to reduce disruption
+        if i % 5 == 0:
+            clear_folder(UPLOAD_FOLDER)
 
 
 @app.route('/video_feed')
@@ -125,8 +140,5 @@ def current_recognition():
 
 @app.route('/play_sound/<string:name>')
 def play_sound(name):
-    sound_file = face_to_sound.get(name, "")
+    sound_file = face_to_sound.get(name)
     return send_file(sound_file, mimetype='audio/mpeg')
-
-# if __name__ == '__main__':
-#     app.run(debug=True, host='0.0.0.0', port=5000)
