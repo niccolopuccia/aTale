@@ -1,3 +1,11 @@
+'''
+Workflow Integration:
+
+User Uploads Images: The user uploads a folder of images, which your application compresses into a .zip file and uploads to a designated location in Google Drive.
+Automated Notebook Execution: Using one of the automation tools mentioned, set up a system where the Colab notebook runs automatically upon detecting the new upload. The notebook processes the images, trains the model, and generates a new encodings.pkl file.
+Retrieving the .pkl File: Once the notebook completes execution, the updated .pkl file can be saved back to Google Drive, from where your application can access it.
+'''
+
 import shutil
 import time
 import cv2

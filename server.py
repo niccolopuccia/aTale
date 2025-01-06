@@ -1,95 +1,90 @@
-from flask import Flask, jsonify, request, render_template, redirect, url_for
+import datetime
+from pydrive.auth import GoogleAuth
+from pydrive.drive import GoogleDrive
 import os
-import cv2
-import pickle
-import face_recognition
+from flask import Flask, request, redirect, url_for, jsonify, send_from_directory, render_template
+import shutil
 from werkzeug.utils import secure_filename
-from PIL import Image
+
+def uploadFolderToDrive(name, folder_id, local_directory):
+    # Authenticate the client.
+    gauth = GoogleAuth()
+    gauth.LocalWebserverAuth()  # Creates local webserver and automatically handles authentication.
+    drive = GoogleDrive(gauth)
+
+    # Create a new folder inside the specified Google Drive folder
+    folder_name = str(name)
+    folder_metadata = {
+        'title': folder_name,
+        'mimeType': 'application/vnd.google-apps.folder',
+        'parents': [{'id': folder_id}]
+    }
+    folder = drive.CreateFile(folder_metadata)
+    folder.Upload()  # Upload the new folder to Google Drive
+    print(f"Created new folder '{folder_name}' inside the specified folder.")
+
+    # Iterate over all files in the local directory.
+    for filename in os.listdir(local_directory):
+        file_path = os.path.join(local_directory, filename)
+
+        # Only proceed if it's a file (not a directory)
+        if os.path.isfile(file_path):
+            # Create a file instance and set its content and parent folder (the newly created folder)
+            gfile = drive.CreateFile({'parents': [{'id': folder['id']}]})
+            gfile.SetContentFile(file_path)
+            gfile['title'] = filename
+            gfile.Upload()  # Upload the file
+            print(f'Uploaded {filename} to Google Drive inside folder {folder_name}.')
+
+
+
+def clean_folder(folder_path):
+    if os.path.exists(folder_path):
+        # Iterate over all files and directories in the folder
+        for filename in os.listdir(folder_path):
+            file_path = os.path.join(folder_path, filename)
+            try:
+                # If it's a file, remove it
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.remove(file_path)
+                # If it's a directory, remove it and all its contents
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print(f"Error deleting {file_path}: {e}")
+    else:
+        print(f"Folder {folder_path} does not exist!")
+
+
+UPLOAD_FOLDER = '/Users/niccolo/Desktop/aTale/aTale/NewFolder'
 
 app = Flask(__name__)
-
-# Load precomputed face encodings
-with open('/Users/niccolo/Desktop/aTale/aTale/model/encodings.pkl', 'rb') as f:
-    data = pickle.load(f)
-known_encodings = data['encodings']
-known_names = data['names']
-
-# Configure upload folder and allowed extensions
-UPLOAD_FOLDER = '/Users/niccolo/Desktop/aTale/aTale/uploads/'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-# Ensure the upload folder exists
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
 @app.route('/upload', methods=['POST'])
-def upload_image():
+def upload_file():
+    if 'files[]' not in request.files:
+        return jsonify({'error': 'No files part in the request'}), 400
 
-    # Integrity checks
-    if 'file' not in request.files:
-        return redirect(request.url)
-    file = request.files['file']
-    if file.filename == '':
-        return redirect(request.url)
-    # Put the inserted image in the folder uploads in this working directory
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
+    files = request.files.getlist('files[]')
+    personInPhoto = request.form.get('description')
+    uploaded_files = []
 
-        # Load and preprocess the image
-        frame = cv2.imread(filepath)
-        if frame is None:
-            return jsonify({'error': 'Failed to read image'}), 400
+    for file in files:
+        if file:
+            filename = secure_filename(file.filename)
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            uploaded_files.append(filename)
+        else:
+            return jsonify({'error': f'File {file.filename} is not allowed'}), 400
 
-        # Resize while maintaining aspect ratio
-        height, width = frame.shape[:2]
-        new_width = 500
-        new_height = int(height * (new_width / width))
-        frame = cv2.resize(frame, (new_width, new_height))
+    # Specify the ID of the folder where you want to upload files.
+    folder_id = '1TEdvCAaY6aTjwyZ9QZPMc7IjEM92uDHN'
 
-        # Convert to grayscale for face detection
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-        # Detect faces using OpenCV's Haar Cascade
-        detector = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        if detector.empty():
-            return jsonify({'error': 'Failed to load face detector'}), 500
-
-        rects = detector.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-
-        # Convert coordinates to the format expected by face_recognition
-        boxes = [(y, x + w, y + h, x) for (x, y, w, h) in rects]
-
-        # Convert the image to RGB
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-        # Compute face encodings
-        encodings = face_recognition.face_encodings(rgb, boxes)
-        if not encodings:
-            return jsonify({'error': 'No faces found in the image'}), 400
-
-        face_names = []
-        threshold = 0.45  # Default tolerance value
-
-        for encoding in encodings:
-            matches = face_recognition.compare_faces(known_encodings, encoding, tolerance=threshold)
-            name = "Unknown"
-            face_distances = face_recognition.face_distance(known_encodings, encoding)
-            if matches:
-                best_match_index = face_distances.argmin()
-                if matches[best_match_index]:
-                    name = known_names[best_match_index]
-            face_names.append(name)
-            # print(face_names)
-
-        return jsonify({'recognized_names': face_names}), 200
-
-    return jsonify({'error': 'Invalid file type'}), 400
+    uploadFolderToDrive(personInPhoto, folder_id, UPLOAD_FOLDER)
+    clean_folder(UPLOAD_FOLDER)
+    return jsonify({'message': 'Files successfully uploaded', 'files': uploaded_files}), 200

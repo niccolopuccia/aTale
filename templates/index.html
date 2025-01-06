@@ -2,111 +2,250 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Image Upload and Prediction Display</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload Interface</title>
     <style>
+        /* Global Styling */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         body {
+            font-family: 'Arial', sans-serif;
+            background-color: #121212;
+            color: #fff;
+            height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            background-color: #f8f9fa;
+        }
+
+        /* Navbar Styling */
+        nav {
+            width: 100%;
+            padding: 15px 20px;
+            background-color: #1e1e1e;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+            position: fixed;
+            top: 0;
+            z-index: 1000;
+        }
+        nav h1 {
+            font-size: 24px;
+        }
+        nav ul {
+            list-style: none;
+            display: flex;
             margin: 0;
+            padding: 0;
         }
-        .upload-container {
-            background: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        nav ul li {
+            margin-left: 20px;
+        }
+        nav ul li a {
+            text-decoration: none;
+            color: #fff;
+            font-size: 16px;
+            transition: color 0.3s;
+        }
+        nav ul li a:hover {
+            color: #007BFF;
+        }
+
+        /* Main Section */
+        .main-section {
             text-align: center;
+            padding: 30px 20px;
+            background: linear-gradient(to bottom, #1e1e1e, #121212);
+            border-radius: 10px;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
             width: 100%;
-            max-width: 400px;
+            max-width: 600px;
         }
-        .image-preview {
+        .main-section h2 {
+            font-size: 36px;
+            color: #007BFF;
+            margin-bottom: 20px;
+        }
+
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* Common Button Styling */
+        button {
+            padding: 12px 25px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+            transition: background-color 0.3s, box-shadow 0.3s, transform 0.2s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.6);
+            transform: translateY(-3px);
+        }
+
+        /* File Upload Button Styling */
+        #uploadButton {
+            margin-top: 20px; /* Add space above the 'Choose Files' button */
+        }
+
+        /* Upload Files Button Styling */
+        #uploadButton2 {
+            margin-top: 20px; /* Add space above the 'Upload Files' button */
+        }
+
+        /* File List Styling */
+        ul {
+            list-style-type: none;
+            padding: 0;
             margin-top: 20px;
+        }
+
+        ul li {
+            margin: 10px 0;
+            color: #aaa;
+        }
+
+        /* Textarea Styling */
+        #fileDescription {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #1e1e1e;
+            color: #fff;
+            border: 1px solid #333;
+            border-radius: 5px;
+            width: 80%;
+            max-width: 600px;
+            resize: none;
+            font-size: 16px;
+        }
+
+        /* Footer Styling */
+        footer {
             width: 100%;
-            max-width: 300px;
-            height: auto;
-            display: none;
+            text-align: center;
+            padding: 10px;
+            background-color: #1e1e1e;
+            color: #aaa;
+            position: fixed;
+            bottom: 0;
         }
-        .prediction-container {
-            margin-top: 20px;
+        footer a {
+            text-decoration: none;
+            color: #007BFF;
+            transition: color 0.3s;
+        }
+        footer a:hover {
+            color: #0056b3;
+        }
+
+        /* Hide the default file input */
+        #fileInput {
             display: none;
         }
     </style>
 </head>
 <body>
-    <div class="upload-container">
-        <h2>Upload an Image</h2>
-        <input class="form-control" type="file" id="imageUpload" accept="image/jpeg, image/jpg, image/png">
-        <img id="imagePreview" class="image-preview" src="#" alt="Image Preview">
-        <div id="predictionContainer" class="prediction-container alert alert-info" role="alert">
-            <strong>Prediction:</strong> <span id="predictionText"></span>
+    <!-- Navbar -->
+    <nav>
+        <h1>aTale Upload</h1>
+        <ul>
+            <li><a href="#">Home</a></li>
+            <li><a href="#">About</a></li>
+            <li><a href="#">Contact</a></li>
+        </ul>
+    </nav>
+
+    <!-- Main Content Section -->
+    <div class="main-section">
+        <h2>Add new pictures to the model!</h2>
+        <div class="main-content">
+            <h3>Who's in the pictures?:</h3>
+            <textarea id="fileDescription" rows="4" cols="50" placeholder="Enter a description for the uploaded files..."></textarea>
+            <ul id="fileList"></ul>
+            <!-- File Selection and Description -->
+            <input type="file" id="fileInput" multiple>
+            <button id="uploadButton">Choose Files</button>
+            <div class="button-container">
+                <button id="uploadButton2">Upload Files</button>
+            </div>
         </div>
     </div>
 
-    <!-- Bootstrap Bundle with Popper -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Footer -->
+    <footer>
+        © 2024 <a href="#">FileUploader</a>. All rights reserved.
+    </footer>
+
     <script>
-        document.getElementById('imageUpload').addEventListener('change', function(event) {
-            const file = event.target.files[0];
-            const imagePreview = document.getElementById('imagePreview');
-            const predictionContainer = document.getElementById('predictionContainer');
-            const predictionText = document.getElementById('predictionText');
+        document.getElementById('uploadButton').addEventListener('click', function() {
+            document.getElementById('fileInput').click();
+        });
 
-            if (file) {
-                const validImageTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-                if (validImageTypes.includes(file.type)) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        // Display the image preview
-                        imagePreview.src = e.target.result;
-                        imagePreview.style.display = 'block';
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const files = event.target.files;
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = '';
 
-                        // Prepare the form data
-                        const formData = new FormData();
-                        formData.append('file', file);
-
-                        // Send the image to the server
-                        fetch('/upload', {
-                            method: 'POST',
-                            body: formData
-                        })
-                        .then(response => {
-                            if (!response.ok) {
-                                throw new Error('Network response was not ok');
-                            }
-                            return response.json();
-                        })
-                        .then(data => {
-                            // Display the prediction result
-                            if (data.recognized_names && data.recognized_names.length > 0) {
-                                predictionText.textContent = 'Recognized: ' + data.recognized_names.join(', ');
-                            } else if (data.error) {
-                                predictionText.textContent = 'Error: ' + data.error;
-                            } else {
-                                predictionText.textContent = 'No faces recognized.';
-                            }
-                            predictionContainer.style.display = 'block';
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            predictionText.textContent = 'An error occurred while processing the image.';
-                            predictionContainer.style.display = 'block';
-                        });
-                    };
-                    reader.readAsDataURL(file);
-                } else {
-                    alert('Please select a valid image file (JPEG, JPG, or PNG).');
-                    imagePreview.style.display = 'none';
-                    predictionContainer.style.display = 'none';
-                }
-            } else {
-                imagePreview.style.display = 'none';
-                predictionContainer.style.display = 'none';
+            for (let i = 0; i < files.length; i++) {
+                const listItem = document.createElement('li');
+                listItem.textContent = files[i].name;
+                fileList.appendChild(listItem);
             }
         });
+
+        document.getElementById('uploadButton2').addEventListener('click', function() {
+            const files = document.getElementById('fileInput').files;
+            uploadFiles(files);
+        });
+
+        function uploadFiles(files) {
+            const formData = new FormData();
+
+            // Add the description entered by the user
+            const description = document.getElementById('fileDescription').value;
+            formData.append('description', description);
+
+            // Add files to the FormData object
+            for (let i = 0; i < files.length; i++) {
+                formData.append('files[]', files[i]);
+            }
+
+            // Send the form data to the server
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    throw new Error('Upload failed');
+                }
+            })
+            .then(data => {
+                console.log('Success:', data);
+                alert('Files uploaded successfully.');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while uploading the files.');
+            });
+        }
     </script>
 </body>
 </html>
