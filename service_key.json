@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "atale-447017",
+  "private_key_id": "cef5455a2cf1c0c9e368e9f552fff26843d19d16",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCOIpwnWkYC/f9f\n9uXQrwr/5oMhOsj4ktIDPnJO3ILB54vxt1eGPtASiCRa8sDGpJ3uPssBzNKNgVg2\nHLFv0V2HAD56mWpUqDKT3+AMK8wZ/wTBc0ITPcrmI3mofpraaB/96RKTse4PAbwu\n/5LyC6xrXG757dIJTGDY1OssvCbx3Tls9+PqPH9ynrhKH6FwgusfGcfTwJJ1jnyv\nKGm9m8tEmFLcE9vsOV8TEuLfD2VKVnQzD2Oc27QWaw2/x4BR3eIyLgsfydZS8/nC\n5uHX2YTufFZQAbkxzVWJPyVuY+YfIwRY7wrTtUJjFJ1Wsj6A25zjbfW+uzHkIptS\nI4jdmm7RAgMBAAECggEAAYzkYtwV3Z+dWO5vpsIDstjApd9fIgcmc/9QRiv637r1\nscyrWgvTz3xFYr9T/bAIcmOZlDwtO1qdmToBBWMSuUewtsaXKa5xE5/jwOLmVG3Y\nXz88HtX78VySKGBd/QDD9rwziLGZDa15+tyCGE0rAQZf0MQLWDtUEVtpsl9Im2Hi\nDkoq2K+Fvd1LpPpuBTa8CrzxdGaGD7ad7qGnCTXzQrITtdoMOQkjKnZd7xevsqjG\nQ+/1YoJ0MkdaKWlc1VfggLmcyRIdqbmoBI/FW06BTFY58P8aLlkmJPKlaWVeLsiH\npy2kvsT00I5jSlxb1ej7jEmVBvraFTMFXFhNnmZQYQKBgQDDXlj6bhcHz+O4eRhj\noyUmVPwK6DF+NjrCG+BmCGzsvWX7bpozBvWkEaLIws1n6ityspySgkdbE5C4pTeU\nNlTFvM4Pb19DZ8BAGc46vLrYxfOLestRusPbU32o6eGmpACkAjDVVblm7j9AaHmr\nk6VwRpTKZ3bu5BnLehh39LDC8QKBgQC6PvnTEsXxnUVVO74LcW70x37M2FkKLhav\nbA9OIfr5qavSKOaY1SPJPBy8UjcoP4HiGSn/I/aRrJT74D9z4uDK5CAffqTRc6nv\nfmRi09CeO8oGuth4PVCFZ1kDCrd5dr7uw6NXJhlP3JWdH4caNnWCLDCA+a2CmXT+\nTDUv+m6p4QKBgG0KYZsUiuIfU7gITmZ+DiQA1tO3mLgayFzCdlI8bZ8MbrkQmBvW\nzI8QEM0AfOh8uFdB/UWAVRcuKl4ESKr+T/41TMUsofzbEWA1hvcdkyOeCDpXBNfO\n57WoOcBnGTyK2JixaFQJjns2ijMGnLH4rCOoIS9+49CdmxAIS1PYTDfhAoGAJr7n\nNjQXnfY78ElndfX5QU8nX/I6Q9XmvkPaw0Rqc/oKVsRPhMgCk+C/kaYA94yOtrzJ\ncdzHdPLUY7n5OWCfp1XiIOs12qUXW02OEMlEA0co9lF0qz8GO1qOuAVIuior+nwU\nxRKV/XlEXtWqQ5fExnnu9UX8BMlr/2NXRU3yK8ECgYEAoSPLTHi+a/BaMF+lZM2o\nkF7w9EmXzwshyKDl4vOjSTiTE1XMcIoc1e132mo4s+/HppynkhSly9VIk6vN5adz\nfkLg5OFdQ/NYyvdj2VdzG7DNcgYUObFcxE0kK0RUhlsim7kPX/1ycL3Nyi7lbaHc\nx/UWicZYPTKsFNEoZoyOAhY=\n-----END PRIVATE KEY-----\n",
+  "client_email": "encodings-poller@atale-447017.iam.gserviceaccount.com",
+  "client_id": "110668253866045076949",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/encodings-poller%40atale-447017.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

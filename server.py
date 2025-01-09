@@ -1,10 +1,16 @@
-import datetime
+import time
+from selenium import webdriver
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
 import os
 from flask import Flask, request, redirect, url_for, jsonify, send_from_directory, render_template
 import shutil
 from werkzeug.utils import secure_filename
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
+
+
 
 def uploadFolderToDrive(name, folder_id, local_directory):
     # Authenticate the client.
@@ -37,7 +43,6 @@ def uploadFolderToDrive(name, folder_id, local_directory):
             print(f'Uploaded {filename} to Google Drive inside folder {folder_name}.')
 
 
-
 def clean_folder(folder_path):
     if os.path.exists(folder_path):
         # Iterate over all files and directories in the folder
@@ -55,9 +60,47 @@ def clean_folder(folder_path):
     else:
         print(f"Folder {folder_path} does not exist!")
 
+###### START DOWNLOAD FROM FOLDER FUNCTIONS
+
+def accessFolderFromDrive():
+    # Authenticate and Build the Drive Service
+    SCOPES = ['https://www.googleapis.com/auth/drive']
+    SERVICE_ACCOUNT_FILE = '/Users/niccolo/Desktop/aTale/aTale/service_key.json'
+
+    try:
+        credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+        service = build('drive', 'v3', credentials=credentials)
+        return service
+    except Exception as e:
+        print(f"Error loading service account credentials: {e}")
+        raise e
+
+def get_file_metadata(file_id, service):
+    return service.files().get(fileId=file_id, fields='modifiedTime').execute()
+
+def monitor_file(file_id, local_path, service, check_interval=60):
+    last_modified = None
+    while True:
+        metadata = get_file_metadata(file_id, service)
+        modified_time = metadata['modifiedTime']
+        if modified_time != last_modified:
+            print("Encodings modified")
+            download_file(file_id, local_path, service)
+            last_modified = modified_time
+        time.sleep(check_interval)
+
+def download_file(file_id, local_path, service):
+    request = service.files().get_media(fileId=file_id)
+    with open(local_path, 'wb') as f:
+        downloader = MediaIoBaseDownload(f, request)
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
+            print(f'Downloading in local directory: {int(status.progress() * 100)}%.')
+
+###### END DOWNLOAD FROM FOLDER FUNCTIONS
 
 UPLOAD_FOLDER = '/Users/niccolo/Desktop/aTale/aTale/NewFolder'
-
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -87,4 +130,19 @@ def upload_file():
 
     uploadFolderToDrive(personInPhoto, folder_id, UPLOAD_FOLDER)
     clean_folder(UPLOAD_FOLDER)
+
+    # Automathically opens Colab for training
+    driver = webdriver.Chrome()
+    driver.get('https://colab.research.google.com/drive/1ipoE9rk3LMIGFL9wkw45BvQak1FwImOd#scrollTo=xaVkwxQjoP3l')
+    time.sleep(5)
+
     return jsonify({'message': 'Files successfully uploaded', 'files': uploaded_files}), 200
+
+
+# Whenever the retrain button is clicked triggers the encodigs file monitoring and eventually bring it into the local folder when it changes
+@app.route('/notify', methods=['POST'])
+def trainModel():
+    FILE_ID = '1-0hSQk6Du-NYpjRG5Nm7YSRxBy78vVJP'
+    LOCAL_PATH = '/Users/niccolo/Desktop/aTale/aTale/model/encodings.pkl'
+    service = accessFolderFromDrive()
+    monitor_file(FILE_ID, LOCAL_PATH, service)

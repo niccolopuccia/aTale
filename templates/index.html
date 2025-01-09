@@ -108,6 +108,11 @@
             margin-top: 20px; /* Add space above the 'Upload Files' button */
         }
 
+        /* Add space above the Notify button */
+        #notifyButton {
+            margin-top: 20px;
+        }
+
         /* File List Styling */
         ul {
             list-style-type: none;
@@ -183,6 +188,8 @@
             <div class="button-container">
                 <button id="uploadButton2">Upload Files</button>
             </div>
+            <!-- New Notify Button -->
+            <button id="notifyButton">Notify Server</button>
         </div>
     </div>
 
@@ -244,6 +251,42 @@
             .catch(error => {
                 console.error('Error:', error);
                 alert('An error occurred while uploading the files.');
+            });
+        }
+
+        // New notify button functionality
+        document.getElementById('notifyButton').addEventListener('click', function() {
+            notifyServer();
+        });
+
+        function notifyServer() {
+            // You can pass additional data here if necessary
+            const description = document.getElementById('fileDescription').value;
+
+            fetch('/notify', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    description: description,
+                    message: 'A new file upload is ready for processing'
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    throw new Error('Notification failed');
+                }
+            })
+            .then(data => {
+                console.log('Notification sent:', data);
+                alert('Notification sent to the server.');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while notifying the server.');
             });
         }
     </script>
