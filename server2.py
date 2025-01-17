@@ -1,11 +1,3 @@
-'''
-Workflow Integration:
-
-User Uploads Images: The user uploads a folder of images, which your application compresses into a .zip file and uploads to a designated location in Google Drive.
-Automated Notebook Execution: Using one of the automation tools mentioned, set up a system where the Colab notebook runs automatically upon detecting the new upload. The notebook processes the images, trains the model, and generates a new encodings.pkl file.
-Retrieving the .pkl File: Once the notebook completes execution, the updated .pkl file can be saved back to Google Drive, from where your application can access it.
-'''
-
 import shutil
 import time
 import cv2
@@ -14,8 +6,29 @@ import os
 from flask import Flask, render_template, Response, send_file, request
 import pickle
 import face_recognition
+import json
+
 
 app = Flask(__name__)
+
+# Generic JSON access and update functions
+def read_json(file_path):
+    try:
+        with open(file_path, 'r') as file:
+            return json.load(file)
+    except FileNotFoundError:
+        return {}
+
+def write_json(data, file_path):
+    with open(file_path, 'w') as file:
+        json.dump(data, file, indent=4)
+
+def add_audio_to_person(file_path, name, audio_path):
+    data = read_json(file_path)
+    data[name] = audio_path
+    write_json(data, file_path)
+    print(f"Aggiunto: {name} con path {audio_path}")
+
 
 # Load precomputed face encodings
 with open('/Users/niccolo/Desktop/aTale/aTale/model/encodings.pkl', 'rb') as f:
@@ -95,9 +108,7 @@ def predict(filepath):
 
     return ", ".join(face_names) if face_names else "Unknown"
 
-face_to_sound = {
-    "Nicco": "/Users/niccolo/Desktop/aTale/aTale/recordings/Audio1.mp3",
-}
+
 
 
 @app.route('/')
@@ -106,7 +117,6 @@ def index():
 
 camera = cv2.VideoCapture(0)
 recognized_person = "Unknown"
-
 
 def generate_frames():
     global recognized_person
@@ -148,5 +158,6 @@ def current_recognition():
 
 @app.route('/play_sound/<string:name>')
 def play_sound(name):
-    sound_file = face_to_sound.get(name)
+    data = read_json("/Users/niccolo/Desktop/aTale/aTale/matching.json")
+    sound_file = data[name]
     return send_file(sound_file, mimetype='audio/mpeg')

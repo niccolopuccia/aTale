@@ -3,14 +3,79 @@ from selenium import webdriver
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
 import os
-from flask import Flask, request, redirect, url_for, jsonify, send_from_directory, render_template
+from flask import Flask, request, redirect, url_for, jsonify, render_template
 import shutil
 from werkzeug.utils import secure_filename
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
+from flask import Flask, request, jsonify
+import subprocess
+import os
+import json
 
+app = Flask(__name__)
+UPLOAD_FOLDER = '/Users/niccolo/Desktop/aTale/aTale/NewFolder'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+################### Generic JSON access and update functions
+def read_json(file_path):
+    try:
+        with open(file_path, 'r') as file:
+            return json.load(file)
+    except FileNotFoundError:
+        return {}
+
+def write_json(data, file_path):
+    with open(file_path, 'w') as file:
+        json.dump(data, file, indent=4)
+
+def add_audio_to_person(file_path, name, audio_path):
+    data = read_json(file_path)
+    data[name] = audio_path
+    write_json(data, file_path)
+    print(f"Added: {name} with path {audio_path}")
+###################
+
+# Displays the main page of the server
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+# Allows the user to upload its images on the specified google Drive folder
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'files[]' not in request.files:
+        return jsonify({'error': 'No files part in the request'}), 400
+
+    files = request.files.getlist('files[]')
+    personInPhoto = request.form.get('description')
+    # Insert a new key in the JSON dictionary with just the name of the person framed
+    add_audio_to_person("/Users/niccolo/Desktop/aTale/aTale/matching.json", personInPhoto, None)
+    uploaded_files = []
+
+    for file in files:
+        if file:
+            filename = secure_filename(file.filename)
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            uploaded_files.append(filename)
+        else:
+            return jsonify({'error': f'File {file.filename} is not allowed'}), 400
+
+    # Specify the ID of the folder where you want to upload files.
+    folder_id = '1TEdvCAaY6aTjwyZ9QZPMc7IjEM92uDHN'
+
+    uploadFolderToDrive(personInPhoto, folder_id, UPLOAD_FOLDER)
+    clean_folder(UPLOAD_FOLDER)
+
+    # Automathically opens Colab for training
+    # driver = webdriver.Chrome()
+    # driver.get('https://colab.research.google.com/drive/1ipoE9rk3LMIGFL9wkw45BvQak1FwImOd#scrollTo=xaVkwxQjoP3l')
+    # time.sleep(5)
+
+    return jsonify({'message': 'Files successfully uploaded', 'files': uploaded_files}), 200
+
+################### START UPLOAD TO DRIVE FUNCTIONS
 
 def uploadFolderToDrive(name, folder_id, local_directory):
     # Authenticate the client.
@@ -32,8 +97,9 @@ def uploadFolderToDrive(name, folder_id, local_directory):
     # Iterate over all files in the local directory.
     for filename in os.listdir(local_directory):
         file_path = os.path.join(local_directory, filename)
+        print(file_path)
 
-        # Only proceed if it's a file (not a directory)
+        # Only proceed if it's a file
         if os.path.isfile(file_path):
             # Create a file instance and set its content and parent folder (the newly created folder)
             gfile = drive.CreateFile({'parents': [{'id': folder['id']}]})
@@ -41,7 +107,6 @@ def uploadFolderToDrive(name, folder_id, local_directory):
             gfile['title'] = filename
             gfile.Upload()  # Upload the file
             print(f'Uploaded {filename} to Google Drive inside folder {folder_name}.')
-
 
 def clean_folder(folder_path):
     if os.path.exists(folder_path):
@@ -60,7 +125,18 @@ def clean_folder(folder_path):
     else:
         print(f"Folder {folder_path} does not exist!")
 
-###### START DOWNLOAD FROM FOLDER FUNCTIONS
+################### END UPLOAD TO DRIVE FUNCTIONS
+
+# Whenever the retrain button is clicked triggers the encodigs file monitoring and eventually bring it into the local folder when it changes
+@app.route('/notify', methods=['POST'])
+def trainModel():
+    FILE_ID = '1-0hSQk6Du-NYpjRG5Nm7YSRxBy78vVJP'
+    LOCAL_PATH = '/Users/niccolo/Desktop/aTale/aTale/model/encodings.pkl'
+    service = accessFolderFromDrive()
+    monitor_file(FILE_ID, LOCAL_PATH, service)
+
+
+################### START BRING LOCALLY THE ENCODINGS FUNCTIONS
 
 def accessFolderFromDrive():
     # Authenticate and Build the Drive Service
@@ -98,51 +174,38 @@ def download_file(file_id, local_path, service):
             status, done = downloader.next_chunk()
             print(f'Downloading in local directory: {int(status.progress() * 100)}%.')
 
-###### END DOWNLOAD FROM FOLDER FUNCTIONS
-
-UPLOAD_FOLDER = '/Users/niccolo/Desktop/aTale/aTale/NewFolder'
-app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    if 'files[]' not in request.files:
-        return jsonify({'error': 'No files part in the request'}), 400
-
-    files = request.files.getlist('files[]')
-    personInPhoto = request.form.get('description')
-    uploaded_files = []
-
-    for file in files:
-        if file:
-            filename = secure_filename(file.filename)
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            uploaded_files.append(filename)
-        else:
-            return jsonify({'error': f'File {file.filename} is not allowed'}), 400
-
-    # Specify the ID of the folder where you want to upload files.
-    folder_id = '1TEdvCAaY6aTjwyZ9QZPMc7IjEM92uDHN'
-
-    uploadFolderToDrive(personInPhoto, folder_id, UPLOAD_FOLDER)
-    clean_folder(UPLOAD_FOLDER)
-
-    # Automathically opens Colab for training
-    driver = webdriver.Chrome()
-    driver.get('https://colab.research.google.com/drive/1ipoE9rk3LMIGFL9wkw45BvQak1FwImOd#scrollTo=xaVkwxQjoP3l')
-    time.sleep(5)
-
-    return jsonify({'message': 'Files successfully uploaded', 'files': uploaded_files}), 200
+################### END BRING LOCALLY ENCODINGS FUNCTIONS
 
 
-# Whenever the retrain button is clicked triggers the encodigs file monitoring and eventually bring it into the local folder when it changes
-@app.route('/notify', methods=['POST'])
-def trainModel():
-    FILE_ID = '1-0hSQk6Du-NYpjRG5Nm7YSRxBy78vVJP'
-    LOCAL_PATH = '/Users/niccolo/Desktop/aTale/aTale/model/encodings.pkl'
-    service = accessFolderFromDrive()
-    monitor_file(FILE_ID, LOCAL_PATH, service)
+# Create a directory to store the uploaded files
+RECORDING_FOLDER = 'uploads'
+CONVERTED_FOLDER = 'recordings'
+os.makedirs(RECORDING_FOLDER, exist_ok=True)
+os.makedirs(CONVERTED_FOLDER, exist_ok=True)
+
+# Bring the uploaded audio file inside a local directory
+@app.route('/upload_audio', methods=['POST'])
+def upload_audio():
+    if 'audio' not in request.files:
+        return jsonify({"error": "No audio file part"}), 400
+
+    # Get the uploaded file
+    audio = request.files['audio']
+    audio_path = os.path.join(RECORDING_FOLDER, audio.filename)
+    audio.save(audio_path)
+
+    # Convert the audio from WEBM to MP3 using ffmpeg
+    output_path = os.path.join(CONVERTED_FOLDER, f"{audio.filename.split('.')[0]}.mp3")
+
+    try:
+        # Use ffmpeg to convert the audio file to MP3
+        subprocess.run(['ffmpeg', '-i', audio_path, '-vn', '-ar', '44100', '-ac', '2', '-ab', '192k', output_path], check=True)
+        # Delete the original WEBM file after conversion
+        os.remove(audio_path)
+        # Look for the last inserted key in the dictionary (the one with a None value) and add the audio path as key
+        data = read_json("/Users/niccolo/Desktop/aTale/aTale/matching.json")
+        last_key = list(data.keys())[-1]
+        add_audio_to_person("/Users/niccolo/Desktop/aTale/aTale/matching.json", last_key, "/Users/niccolo/Desktop/aTale/aTale/" + output_path)
+        return jsonify({"message": "Audio converted to MP3 successfully!", "file": output_path}), 200
+    except subprocess.CalledProcessError:
+        return jsonify({"error": "Error during audio conversion."}), 500

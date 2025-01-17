@@ -179,8 +179,7 @@
     <div class="main-section">
         <h2>Add new pictures to the model!</h2>
         <div class="main-content">
-            <h3>Who's in the pictures?:</h3>
-            <textarea id="fileDescription" rows="4" cols="50" placeholder="Enter a description for the uploaded files..."></textarea>
+            <textarea id="fileDescription" rows="4" cols="50" placeholder="Who is in the uploaded photos?"></textarea>
             <ul id="fileList"></ul>
             <!-- File Selection and Description -->
             <input type="file" id="fileInput" multiple>
@@ -188,15 +187,17 @@
             <div class="button-container">
                 <button id="uploadButton2">Upload Files</button>
             </div>
-            <!-- New Notify Button -->
-            <button id="notifyButton">Notify Server</button>
+            <!-- Audio Recording Button -->
+            <div style="margin-top: 20px;">
+                <button id="startButton">Start Recording</button>
+                <button id="stopButton" disabled>Upload Recording</button>
+                <audio id="audioPlayback" controls style="margin-top: 10px;"></audio>
+            </div>
+
+            <!-- Notify Button -->
+            <button id="notifyButton">Train the model</button>
         </div>
     </div>
-
-    <!-- Footer -->
-    <footer>
-        © 2024 <a href="#">FileUploader</a>. All rights reserved.
-    </footer>
 
     <script>
         document.getElementById('uploadButton').addEventListener('click', function() {
@@ -289,6 +290,87 @@
                 alert('An error occurred while notifying the server.');
             });
         }
+
+// AUDIO MANAGEMENT
+
+        let mediaRecorder;
+        let audioChunks = [];
+        let audioStream;
+
+        // Function to request microphone access and initialize MediaRecorder
+        function initializeRecording() {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(function(stream) {
+                audioStream = stream;
+                mediaRecorder = new MediaRecorder(audioStream);
+                mediaRecorder.ondataavailable = function(event) {
+                    audioChunks.push(event.data);
+                };
+                mediaRecorder.onstop = function() {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    document.getElementById('audioPlayback').src = audioUrl;
+
+                    // Now upload the recorded audio to the server
+                    uploadAudio(audioBlob);
+                };
+            })
+            .catch(function(err) {
+                alert("Failed to access microphone: " + err);
+            });
+        }
+        // Initialize microphone access on page load
+        initializeRecording();
+
+        // Start recording when button is clicked
+        document.getElementById('startButton').addEventListener('click', () => {
+            if (mediaRecorder) {
+                mediaRecorder.start();
+                document.getElementById('startButton').disabled = true;
+                document.getElementById('stopButton').disabled = false;
+            } else {
+                alert("MediaRecorder not initialized yet!");
+            }
+        });
+
+        // Stop recording
+        document.getElementById('stopButton').addEventListener('click', () => {
+            if (mediaRecorder) {
+                mediaRecorder.stop();
+                document.getElementById('startButton').disabled = false;
+                document.getElementById('stopButton').disabled = true;
+            } else {
+                alert("Recorder not initialized yet!");
+            }
+        });
+
+        // Function to upload the audio to the server
+        function uploadAudio(blob) {
+    const formData = new FormData();
+
+    // Get the current time as a timestamp
+    const timestamp = new Date().toISOString().replace(/[:.-]/g, '_'); // Formatting the timestamp to make it URL-safe
+    const filename = `recording_${timestamp}.wav`; // Appending the timestamp to the filename
+
+    formData.append('audio', blob, filename); // Append the audio file with the new filename
+
+    // Send the audio file to the server
+    fetch('/upload_audio', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Audio uploaded successfully:', data);
+        alert('Audio uploaded successfully.');
+    })
+    .catch(error => {
+        console.error('Error uploading audio:', error);
+        alert('Error uploading audio.');
+    });
+}
+
     </script>
+
 </body>
 </html>
