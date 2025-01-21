@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Feed</title>
+    <style>
+        /* Global Styling */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #121212;
+            color: #fff;
+        }
+
+        /* Navbar Styling */
+        nav {
+            width: 100%;
+            padding: 15px 20px;
+            background-color: #1e1e1e;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+            position: fixed;
+            top: 0;
+            z-index: 1000;
+        }
+        nav h1 {
+            font-size: 24px;
+        }
+        nav ul {
+            list-style: none;
+            display: flex;
+            margin: 0;
+            padding: 0;
+        }
+        nav ul li {
+            margin-left: 20px;
+        }
+        nav ul li a {
+            text-decoration: none;
+            color: #fff;
+            font-size: 16px;
+            transition: color 0.3s;
+        }
+        nav ul li a:hover {
+            color: #007BFF;
+        }
+
+        /* Hero Section */
+        .hero {
+            width: 100%;
+            text-align: center;
+            padding: 100px 20px 10px;
+            background: linear-gradient(to bottom, #1e1e1e, #121212);
+        }
+        .hero h2 {
+            font-size: 36px;
+            margin-bottom: 10px;
+            color: #007BFF;
+        }
+        .hero p {
+            font-size: 18px;
+            color: #aaa;
+            max-width: 600px;
+            margin: 10px auto;
+        }
+
+        /* Main Container */
+        .container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .camera-box {
+            width: 640px;
+            height: 480px;
+            border: 2px solid #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #000;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .camera-box:hover {
+            transform: scale(1.02);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.9);
+        }
+        img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Button Styling */
+        .button-container {
+            margin-top: 30px;
+        }
+        button {
+            padding: 12px 25px;
+            font-size: 18px;
+            cursor: pointer;
+            background-color: #007BFF;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+            transition: background-color 0.3s, box-shadow 0.3s, transform 0.2s;
+        }
+        button:hover {
+            background-color: #0056b3;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.6);
+            transform: translateY(-3px);
+        }
+
+        /* Output Text Styling */
+        .output-text {
+            margin-top: 20px;
+            padding: 15px;
+            font-size: 16px;
+            background-color: #1e1e1e;
+            color: #ccc;
+            border: 1px solid #333;
+            border-radius: 5px;
+            width: 80%;
+            max-width: 640px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav>
+        <h1></h1>
+        <ul>
+            <li><a href="#">Home</a></li>
+            <li><a href="#">About</a></li>
+            <li><a href="#">Contact</a></li>
+        </ul>
+    </nav>
+
+    <!-- Hero Section -->
+    <div class="hero">
+        <h2>Object recognition</h2>
+        <p> There are stories behind things. Use the camera to let the tale unfold.</p>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div class="camera-box">
+            <img id="camera-feed" src="{{ url_for('video_feed') }}" alt="Camera Feed">
+        </div>
+        <div id="output" class="output-text"></div>
+        <div class="button-container">
+            <button id="recognize-button">Tell a Tale</button>
+        </div>
+    </div>
+
+    <audio id="audio-player"></audio>
+
+    <script>
+        let lastRecognizedPerson = "Unknown"
+        async function pollForChanges() {
+        try {
+            while (true) {
+                const response = await fetch('/current_recognition');  // Fetch from the server
+                const recognizedPerson = await response.text();
+                
+                // Check if the result has changed
+                if (recognizedPerson !== lastRecognizedPerson) {
+                    lastRecognizedPerson = recognizedPerson;
+                    displayChange(recognizedPerson);  // Display the new result
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 2000));  // Wait 2 seconds between requests
+            }
+        } catch (error) {
+            alert("Error fetching recognition data:", error);
+        }
+    }
+
+        function displayChange(recognizedPerson) {
+            const outputElement = document.getElementById('output');
+            if (recognizedPerson && recognizedPerson !== "Unknown") {
+                outputElement.textContent = `Recognized: ${recognizedPerson}`;
+            } else {
+                outputElement.textContent = "No recognizable objects detected.";
+            }
+        }
+
+        // Start the polling to retrieve the current recognized object and write it on the space
+        pollForChanges()
+
+
+        // Retrieve the 
+        document.getElementById("recognize-button").addEventListener("click", async () => {
+            try {
+                const response = await fetch('/current_recognition');
+                const recognizedPerson = await response.text();
+
+                if (recognizedPerson && recognizedPerson !== "Unknown") {
+                    playSound(recognizedPerson);
+                } else {
+                    outputElement.textContent = "Recognition failed. Try again.";
+                }
+            } catch (error) {
+                document.getElementById('output').textContent = "Error fetching recognition data.";
+                alert("Error fetching recognition:", error);
+            }
+        });
+
+        function playSound(name) {
+            const audioPlayer = document.getElementById('audio-player');
+            const soundUrl = `/play_sound/${name}`;
+            audioPlayer.src = soundUrl;
+            audioPlayer.play().catch(err => {
+                alert("Audio playback error:", err);
+            });
+        }
+    </script>
+</body>
+</html>

@@ -153,11 +153,6 @@
         </div>
     </div>
 
-    <!-- Footer -->
-    <footer>
-        © 2024 <a href="#">aTale</a>. All rights reserved.
-    </footer>
-
     <!-- Audio Player -->
     <audio id="audio-player"></audio>
     <script>
@@ -170,7 +165,7 @@
                     playSound(recognizedPerson);
                 }
             } catch (error) {
-                print("Error fetching recognition:", error);
+                alert("Error fetching recognition:", error);
             }
         });
 
@@ -179,7 +174,7 @@
             const soundUrl = `/play_sound/${name}`;
             audioPlayer.src = soundUrl;
             audioPlayer.play().catch(err => {
-                print("Audio playback error:", err);
+                alert("Audio playback error:", err);
             });
         }
     </script>

@@ -1,0 +1,11 @@
+pydrive
+flask
+werkzeug
+google-auth
+google-api-python-client
+opencv-python-headless
+numpy
+face-recognition
+tensorflow
+scikit-learn
+keras

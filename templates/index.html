@@ -120,11 +120,6 @@
             margin-top: 20px;
         }
 
-        ul li {
-            margin: 10px 0;
-            color: #aaa;
-        }
-
         /* Textarea Styling */
         #fileDescription {
             margin-top: 20px;
@@ -207,12 +202,12 @@
         document.getElementById('fileInput').addEventListener('change', function(event) {
             const files = event.target.files;
             const fileList = document.getElementById('fileList');
-            fileList.innerHTML = '';
-
-            for (let i = 0; i < files.length; i++) {
-                const listItem = document.createElement('li');
-                listItem.textContent = files[i].name;
-                fileList.appendChild(listItem);
+            
+            // Instead of listing the files, just show a message
+            if (files.length > 0) {
+                fileList.innerHTML = `You have selected ${files.length} file(s).`;
+            } else {
+                fileList.innerHTML = 'No files selected.';
             }
         });
 
@@ -246,11 +241,11 @@
                 }
             })
             .then(data => {
-                console.log('Success:', data);
+                console.log('Success:', data);  // Use console.log instead of print
                 alert('Files uploaded successfully.');
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.log('Error:', error);  // Use console.log instead of print
                 alert('An error occurred while uploading the files.');
             });
         }
@@ -258,6 +253,7 @@
         // New notify button functionality
         document.getElementById('notifyButton').addEventListener('click', function() {
             notifyServer();
+            alert('Model successfully trained. Thank you!');
         });
 
         function notifyServer() {
@@ -286,12 +282,12 @@
                 alert('Notification sent to the server.');
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.log('Error:', error);
                 alert('An error occurred while notifying the server.');
             });
         }
 
-// AUDIO MANAGEMENT
+        // AUDIO MANAGEMENT
 
         let mediaRecorder;
         let audioChunks = [];
@@ -335,42 +331,35 @@
 
         // Stop recording
         document.getElementById('stopButton').addEventListener('click', () => {
-            if (mediaRecorder) {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
                 mediaRecorder.stop();
                 document.getElementById('startButton').disabled = false;
                 document.getElementById('stopButton').disabled = true;
-            } else {
-                alert("Recorder not initialized yet!");
             }
         });
 
-        // Function to upload the audio to the server
-        function uploadAudio(blob) {
-    const formData = new FormData();
+        // Upload audio file
+        function uploadAudio(audioBlob) {
+            const formData = new FormData();
+            // Get the current time as a timestamp
+            const timestamp = new Date().toISOString().replace(/[:.-]/g, '_'); // Formatting the timestamp to make it URL-safe
+            const filename = `recording_${timestamp}.wav`; // Appending the timestamp to the filename
+            formData.append('audio', audioBlob, filename);
 
-    // Get the current time as a timestamp
-    const timestamp = new Date().toISOString().replace(/[:.-]/g, '_'); // Formatting the timestamp to make it URL-safe
-    const filename = `recording_${timestamp}.wav`; // Appending the timestamp to the filename
-
-    formData.append('audio', blob, filename); // Append the audio file with the new filename
-
-    // Send the audio file to the server
-    fetch('/upload_audio', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log('Audio uploaded successfully:', data);
-        alert('Audio uploaded successfully.');
-    })
-    .catch(error => {
-        console.error('Error uploading audio:', error);
-        alert('Error uploading audio.');
-    });
-}
-
+            fetch('/upload_audio', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert("Audio correctly uploaded")
+                console.log('Audio uploaded:', data);  // Use console.log instead of print
+            })
+            .catch(error => {
+                alert("Error uploading audio")
+                console.log('Error uploading audio:', error);  // Use console.log instead of print
+            });
+        }
     </script>
-
 </body>
 </html>

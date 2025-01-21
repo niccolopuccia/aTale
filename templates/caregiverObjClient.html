@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload Interface</title>
+    <style>
+        /* Global Styling */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #121212;
+            color: #fff;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Navbar Styling */
+        nav {
+            width: 100%;
+            padding: 15px 20px;
+            background-color: #1e1e1e;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+            position: fixed;
+            top: 0;
+            z-index: 1000;
+        }
+        nav h1 {
+            font-size: 24px;
+        }
+        nav ul {
+            list-style: none;
+            display: flex;
+            margin: 0;
+            padding: 0;
+        }
+        nav ul li {
+            margin-left: 20px;
+        }
+        nav ul li a {
+            text-decoration: none;
+            color: #fff;
+            font-size: 16px;
+            transition: color 0.3s;
+        }
+        nav ul li a:hover {
+            color: #007BFF;
+        }
+
+        /* Main Section */
+        .main-section {
+            text-align: center;
+            padding: 30px 20px;
+            background: linear-gradient(to bottom, #1e1e1e, #121212);
+            border-radius: 10px;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 600px;
+        }
+        .main-section h2 {
+            font-size: 36px;
+            color: #007BFF;
+            margin-bottom: 20px;
+        }
+
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* Common Button Styling */
+        button {
+            padding: 12px 25px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+            transition: background-color 0.3s, box-shadow 0.3s, transform 0.2s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.6);
+            transform: translateY(-3px);
+        }
+
+        /* File Upload Button Styling */
+        #uploadButton {
+            margin-top: 20px; /* Add space above the 'Choose Files' button */
+        }
+
+        /* Upload Files Button Styling */
+        #uploadButton2 {
+            margin-top: 20px; /* Add space above the 'Upload Files' button */
+        }
+
+        /* Add space above the Notify button */
+        #notifyButton {
+            margin-top: 20px;
+        }
+
+        /* File List Styling */
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin-top: 20px;
+        }
+
+        /* Textarea Styling */
+        #fileDescription {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #1e1e1e;
+            color: #fff;
+            border: 1px solid #333;
+            border-radius: 5px;
+            width: 80%;
+            max-width: 600px;
+            resize: none;
+            font-size: 16px;
+        }
+
+        /* Footer Styling */
+        footer {
+            width: 100%;
+            text-align: center;
+            padding: 10px;
+            background-color: #1e1e1e;
+            color: #aaa;
+            position: fixed;
+            bottom: 0;
+        }
+        footer a {
+            text-decoration: none;
+            color: #007BFF;
+            transition: color 0.3s;
+        }
+        footer a:hover {
+            color: #0056b3;
+        }
+
+        /* Hide the default file input */
+        #fileInput {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav>
+        <h1>aTale Upload</h1>
+        <ul>
+            <li><a href="#">Home</a></li>
+            <li><a href="#">About</a></li>
+            <li><a href="#">Contact</a></li>
+        </ul>
+    </nav>
+
+    <!-- Main Content Section -->
+    <div class="main-section">
+        <h2>Add new objects to the model!</h2>
+        <div class="main-content">
+            <textarea id="fileDescription" rows="4" cols="50" placeholder="Who is in the uploaded photos?"></textarea>
+            <ul id="fileList"></ul>
+            <!-- File Selection and Description -->
+            <input type="file" id="fileInput" multiple>
+            <button id="uploadButton">Choose Files</button>
+            <div class="button-container">
+                <button id="uploadButton2">Upload Files</button>
+            </div>
+            <!-- Audio Recording Button -->
+            <div style="margin-top: 20px;">
+                <button id="startButton">Start Recording</button>
+                <button id="stopButton" disabled>Upload Recording</button>
+                <audio id="audioPlayback" controls style="margin-top: 10px;"></audio>
+            </div>
+
+            <!-- Notify Button -->
+            <button id="notifyButton">Train the model</button>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('uploadButton').addEventListener('click', function() {
+            document.getElementById('fileInput').click();
+        });
+
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const files = event.target.files;
+            const fileList = document.getElementById('fileList');
+            
+            if (files.length > 0) {
+                fileList.innerHTML = `You have selected ${files.length} file(s).`;
+            } else {
+                fileList.innerHTML = 'No files selected.';
+            }
+        });
+
+        document.getElementById('uploadButton2').addEventListener('click', function() {
+            const files = document.getElementById('fileInput').files;
+            uploadFiles(files);
+        });
+
+        function uploadFiles(files) {
+            const formData = new FormData();
+
+            // Add the description entered by the user
+            const description = document.getElementById('fileDescription').value;
+            formData.append('description', description);
+
+            // Add files to the FormData object
+            for (let i = 0; i < files.length; i++) {
+                formData.append('files[]', files[i]);
+            }
+
+            // Send the form data to the server
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    throw new Error('Upload failed');
+                }
+            })
+            .then(data => {
+                console.log('Success:', data);  // Use console.log instead of print
+                alert('Files uploaded successfully.');
+            })
+            .catch(error => {
+                console.log('Error:', error);  // Use console.log instead of print
+                alert('An error occurred while uploading the files.');
+            });
+        }
+
+        // New notify button functionality
+        document.getElementById('notifyButton').addEventListener('click', function() {
+            notifyServer();
+            alert('Model successfully trained. Thank you!');
+        });
+
+        function notifyServer() {
+            // You can pass additional data here if necessary
+            const description = document.getElementById('fileDescription').value;
+
+            fetch('/notify', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    description: description,
+                    message: 'A new file upload is ready for processing'
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    throw new Error('Notification failed');
+                }
+            })
+            .then(data => {
+                console.log('Notification sent:', data);
+                alert('Notification sent to the server.');
+            })
+            .catch(error => {
+                console.log('Error:', error);
+                alert('An error occurred while notifying the server.');
+            });
+        }
+
+        // AUDIO MANAGEMENT
+
+        let mediaRecorder;
+        let audioChunks = [];
+        let audioStream;
+
+        // Function to request microphone access and initialize MediaRecorder
+        function initializeRecording() {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(function(stream) {
+                audioStream = stream;
+                mediaRecorder = new MediaRecorder(audioStream);
+                mediaRecorder.ondataavailable = function(event) {
+                    audioChunks.push(event.data);
+                };
+                mediaRecorder.onstop = function() {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    document.getElementById('audioPlayback').src = audioUrl;
+
+                    // Now upload the recorded audio to the server
+                    uploadAudio(audioBlob);
+                };
+            })
+            .catch(function(err) {
+                alert("Failed to access microphone: " + err);
+            });
+        }
+        // Initialize microphone access on page load
+        initializeRecording();
+
+        // Start recording when button is clicked
+        document.getElementById('startButton').addEventListener('click', () => {
+            if (mediaRecorder) {
+                mediaRecorder.start();
+                document.getElementById('startButton').disabled = true;
+                document.getElementById('stopButton').disabled = false;
+            } else {
+                alert("MediaRecorder not initialized yet!");
+            }
+        });
+
+        // Stop recording
+        document.getElementById('stopButton').addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                document.getElementById('startButton').disabled = false;
+                document.getElementById('stopButton').disabled = true;
+            }
+        });
+
+        // Upload audio file
+        function uploadAudio(audioBlob) {
+            const formData = new FormData();
+            // Get the current time as a timestamp
+            const timestamp = new Date().toISOString().replace(/[:.-]/g, '_'); // Formatting the timestamp to make it URL-safe
+            const filename = `recording_${timestamp}.wav`; // Appending the timestamp to the filename
+            formData.append('audio', audioBlob, filename);
+
+            fetch('/upload_audio', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert("Audio correctly uploaded")
+                console.log('Audio uploaded:', data);  // Use console.log instead of print
+            })
+            .catch(error => {
+                alert("Error uploading audio")
+                console.log('Error uploading audio:', error);  // Use console.log instead of print
+            });
+        }
+    </script>
+</body>
+</html>
