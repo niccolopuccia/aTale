@@ -1,22 +1,35 @@
 import time
+import threading
+import shutil
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
 import os
-from flask import Flask, request, redirect, url_for, jsonify, render_template
-import shutil
+from flask import Flask, request, jsonify, render_template
 from werkzeug.utils import secure_filename
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
-from flask import Flask, request, jsonify
 import subprocess
-import os
 import json
 import webbrowser
 
 app = Flask(__name__)
-UPLOAD_FOLDER = '/Users/niccolo/Desktop/aTale/aTale/NewFolderObj'
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'NewFolderObj')
+MATCHING_JSON = os.path.join(BASE_DIR, 'matching_obj.json')
+ENCODINGS_PATH = os.path.join(BASE_DIR, 'model', 'objencodings.pkl')
+SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, 'service_key.json')
+CREDENTIALS_FILE = os.path.join(BASE_DIR, 'drive_credentials.json')
+CLIENT_SECRETS_FILE = os.path.join(BASE_DIR, 'client_secrets.json')
+DRIVE_FOLDER_ID = '1cNJVO7VZvkZg4eLhSfjms1g549sKt3o2'
+ENCODINGS_FILE_ID = '1u1XFbqCXgjB_3QVkloONy8b7K9kqbafM'
+
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+_monitor_thread = None
+_monitor_lock = threading.Lock()
 
 ################### Generic JSON access and update functions
 def read_json(file_path):
@@ -50,8 +63,11 @@ def upload_file():
 
     files = request.files.getlist('files[]')
     personInPhoto = request.form.get('description')
-    # Insert a new key in the JSON dictionary with just the name of the person framed
-    add_audio_to_person("/Users/niccolo/Desktop/aTale/aTale/matching_obj.json", personInPhoto, None)
+    if not personInPhoto:
+        return jsonify({'error': 'description (object name) is required'}), 400
+    existing = read_json(MATCHING_JSON)
+    if personInPhoto not in existing:
+        add_audio_to_person(MATCHING_JSON, personInPhoto, None)
     uploaded_files = []
 
     for file in files:
@@ -62,46 +78,59 @@ def upload_file():
         else:
             return jsonify({'error': f'File {file.filename} is not allowed'}), 400
 
-    # Specify the ID of the folder where you want to upload files.
-    folder_id = '1cNJVO7VZvkZg4eLhSfjms1g549sKt3o2'
-
-    uploadFolderToDrive(personInPhoto, folder_id, UPLOAD_FOLDER)
+    uploadFolderToDrive(personInPhoto, DRIVE_FOLDER_ID, UPLOAD_FOLDER)
     clean_folder(UPLOAD_FOLDER)
 
     return jsonify({'message': 'Files successfully uploaded', 'files': uploaded_files}), 200
 
 ################### START UPLOAD TO DRIVE FUNCTIONS
 
-def uploadFolderToDrive(name, folder_id, local_directory):
-    # Authenticate the client.
+def authenticate_drive():
     gauth = GoogleAuth()
-    gauth.LocalWebserverAuth()  # Creates local webserver and automatically handles authentication.
-    drive = GoogleDrive(gauth)
+    gauth.settings['client_config_file'] = CLIENT_SECRETS_FILE
+    gauth.LoadCredentialsFile(CREDENTIALS_FILE)
+    if gauth.credentials is None:
+        gauth.LocalWebserverAuth()
+    elif gauth.access_token_expired:
+        gauth.Refresh()
+    else:
+        gauth.Authorize()
+    gauth.SaveCredentialsFile(CREDENTIALS_FILE)
+    return GoogleDrive(gauth)
 
-    # Create a new folder inside the specified Google Drive folder
-    folder_name = str(name)
-    folder_metadata = {
-        'title': folder_name,
+def get_or_create_drive_folder(drive, name, parent_id):
+    name = str(name)
+    query = (
+        f"'{parent_id}' in parents and "
+        f"title = '{name}' and "
+        "mimeType = 'application/vnd.google-apps.folder' and "
+        "trashed = false"
+    )
+    existing = drive.ListFile({'q': query}).GetList()
+    if existing:
+        print(f"Reusing existing Drive folder '{name}'.")
+        return existing[0]
+    folder = drive.CreateFile({
+        'title': name,
         'mimeType': 'application/vnd.google-apps.folder',
-        'parents': [{'id': folder_id}]
-    }
-    folder = drive.CreateFile(folder_metadata)
-    folder.Upload()  # Upload the new folder to Google Drive
-    print(f"Created new folder '{folder_name}' inside the specified folder.")
+        'parents': [{'id': parent_id}],
+    })
+    folder.Upload()
+    print(f"Created new Drive folder '{name}'.")
+    return folder
 
-    # Iterate over all files in the local directory.
+def uploadFolderToDrive(name, folder_id, local_directory):
+    drive = authenticate_drive()
+    folder = get_or_create_drive_folder(drive, name, folder_id)
+
     for filename in os.listdir(local_directory):
         file_path = os.path.join(local_directory, filename)
-        print(file_path)
-
-        # Only proceed if it's a file
         if os.path.isfile(file_path):
-            # Create a file instance and set its content and parent folder (the newly created folder)
             gfile = drive.CreateFile({'parents': [{'id': folder['id']}]})
             gfile.SetContentFile(file_path)
             gfile['title'] = filename
-            gfile.Upload()  # Upload the file
-            print(f'Uploaded {filename} to Google Drive inside folder {folder_name}.')
+            gfile.Upload()
+            print(f'Uploaded {filename} to Drive folder {folder["title"]}.')
 
 def clean_folder(folder_path):
     if os.path.exists(folder_path):
@@ -122,29 +151,34 @@ def clean_folder(folder_path):
 
 ################### END UPLOAD TO DRIVE FUNCTIONS
 
-# Whenever the retrain button is clicked triggers the encodigs file monitoring and eventually bring it into the local folder when it changes
+# /notify starts a background watcher that downloads objencodings.pkl whenever
+# it changes on Drive. Returns immediately so the request thread doesn't block.
 @app.route('/notify', methods=['POST'])
 def trainModel():
-    FILE_ID = '1u1XFbqCXgjB_3QVkloONy8b7K9kqbafM'
-    LOCAL_PATH = '/Users/niccolo/Desktop/aTale/aTale/model/objencodings.pkl'
-    service = accessFolderFromDrive()
-    monitor_file(FILE_ID, LOCAL_PATH, service)
+    global _monitor_thread
+    with _monitor_lock:
+        if _monitor_thread is not None and _monitor_thread.is_alive():
+            return jsonify({'message': 'Already monitoring encodings.'}), 200
+        service = accessFolderFromDrive()
+        _monitor_thread = threading.Thread(
+            target=monitor_file,
+            args=(ENCODINGS_FILE_ID, ENCODINGS_PATH, service),
+            daemon=True,
+        )
+        _monitor_thread.start()
+    return jsonify({'message': 'Encodings monitor started.'}), 202
 
 
 ################### START BRING LOCALLY THE ENCODINGS FUNCTIONS
 
 def accessFolderFromDrive():
-    # Authenticate and Build the Drive Service
     SCOPES = ['https://www.googleapis.com/auth/drive']
-    SERVICE_ACCOUNT_FILE = '/Users/niccolo/Desktop/aTale/aTale/service_key.json'
-
     try:
         credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-        service = build('drive', 'v3', credentials=credentials)
-        return service
+        return build('drive', 'v3', credentials=credentials)
     except Exception as e:
         print(f"Error loading service account credentials: {e}")
-        raise e
+        raise
 
 def get_file_metadata(file_id, service):
     return service.files().get(fileId=file_id, fields='modifiedTime').execute()
@@ -152,12 +186,15 @@ def get_file_metadata(file_id, service):
 def monitor_file(file_id, local_path, service, check_interval=60):
     last_modified = None
     while True:
-        metadata = get_file_metadata(file_id, service)
-        modified_time = metadata['modifiedTime']
-        if modified_time != last_modified:
-            print("Encodings modified")
-            download_file(file_id, local_path, service)
-            last_modified = modified_time
+        try:
+            metadata = get_file_metadata(file_id, service)
+            modified_time = metadata['modifiedTime']
+            if modified_time != last_modified:
+                print("Encodings modified")
+                download_file(file_id, local_path, service)
+                last_modified = modified_time
+        except Exception as e:
+            print(f"monitor_file error: {e}")
         time.sleep(check_interval)
 
 def download_file(file_id, local_path, service):
@@ -172,9 +209,8 @@ def download_file(file_id, local_path, service):
 ################### END BRING LOCALLY ENCODINGS FUNCTIONS
 
 
-# Create a directory to store the uploaded files
-RECORDING_FOLDER = 'uploads_obj'
-CONVERTED_FOLDER = 'recordings_obj'
+RECORDING_FOLDER = os.path.join(BASE_DIR, 'uploads_obj')
+CONVERTED_FOLDER = os.path.join(BASE_DIR, 'recordings_obj')
 os.makedirs(RECORDING_FOLDER, exist_ok=True)
 os.makedirs(CONVERTED_FOLDER, exist_ok=True)
 
@@ -183,29 +219,33 @@ os.makedirs(CONVERTED_FOLDER, exist_ok=True)
 def upload_audio():
     if 'audio' not in request.files:
         return jsonify({"error": "No audio file part"}), 400
+    if shutil.which('ffmpeg') is None:
+        return jsonify({"error": "ffmpeg not found on PATH"}), 500
 
-    # Get the uploaded file
     audio = request.files['audio']
-    audio_path = os.path.join(RECORDING_FOLDER, audio.filename)
+    object_name = request.form.get('name')
+    if not object_name:
+        return jsonify({"error": "name (object) form field is required"}), 400
+
+    safe_name = secure_filename(audio.filename) or 'audio.webm'
+    audio_path = os.path.join(RECORDING_FOLDER, safe_name)
     audio.save(audio_path)
 
-    # Convert the audio from WEBM to MP3 using ffmpeg
-    output_path = os.path.join(CONVERTED_FOLDER, f"{audio.filename.split('.')[0]}.mp3")
+    base = os.path.splitext(safe_name)[0]
+    output_path = os.path.join(CONVERTED_FOLDER, f"{base}.mp3")
 
     try:
-        # Use ffmpeg to convert the audio file to MP3
-        subprocess.run(['ffmpeg', '-i', audio_path, '-vn', '-ar', '44100', '-ac', '2', '-ab', '192k', output_path], check=True)
-        # Delete the original WEBM file after conversion
+        subprocess.run(
+            ['ffmpeg', '-y', '-i', audio_path, '-vn', '-ar', '44100', '-ac', '2', '-ab', '192k', output_path],
+            check=True,
+        )
         os.remove(audio_path)
-        # Look for the last inserted key in the dictionary (the one with a None value) and add the audio path as key
-        data = read_json("/Users/niccolo/Desktop/aTale/aTale/matching_obj.json")
-        last_key = list(data.keys())[-1]
-        add_audio_to_person("/Users/niccolo/Desktop/aTale/aTale/matching_obj.json", last_key, "/Users/niccolo/Desktop/aTale/aTale/" + output_path)
+        add_audio_to_person(MATCHING_JSON, object_name, output_path)
         return jsonify({"message": "Audio converted to MP3 successfully!", "file": output_path}), 200
     except subprocess.CalledProcessError:
         return jsonify({"error": "Error during audio conversion."}), 500
-    
+
 
 if __name__ == '__main__':
     webbrowser.open("http://127.0.0.1:5001")
-    app.run(debug=True, port=5001)
+    app.run(debug=True, port=5001, use_reloader=False)

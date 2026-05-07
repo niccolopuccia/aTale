@@ -341,10 +341,15 @@
         // Upload audio file
         function uploadAudio(audioBlob) {
             const formData = new FormData();
-            // Get the current time as a timestamp
-            const timestamp = new Date().toISOString().replace(/[:.-]/g, '_'); // Formatting the timestamp to make it URL-safe
-            const filename = `recording_${timestamp}.wav`; // Appending the timestamp to the filename
+            const timestamp = new Date().toISOString().replace(/[:.-]/g, '_');
+            const filename = `recording_${timestamp}.wav`;
             formData.append('audio', audioBlob, filename);
+            const personName = document.getElementById('fileDescription').value;
+            if (!personName) {
+                alert('Please enter the person name in the description field before recording.');
+                return;
+            }
+            formData.append('name', personName);
 
             fetch('/upload_audio', {
                 method: 'POST',

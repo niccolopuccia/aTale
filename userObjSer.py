@@ -1,9 +1,10 @@
 import shutil
 import time
+import threading
 import cv2
 import numpy as np
 import os
-from flask import Flask, render_template, Response, send_file, request
+from flask import Flask, render_template, Response, send_file
 import pickle
 import json
 import tensorflow as tf
@@ -12,6 +13,10 @@ from keras._tf_keras.keras.applications import MobileNet
 import webbrowser
 
 app = Flask(__name__)
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MATCHING_JSON = os.path.join(BASE_DIR, 'matching_obj.json')
+ENCODINGS_PATH = os.path.join(BASE_DIR, 'model', 'objencodings.pkl')
 
 # Generic JSON access and update functions
 def read_json(file_path):
@@ -31,15 +36,16 @@ def add_audio_to_person(file_path, name, audio_path):
     write_json(data, file_path)
     print(f"Aggiunto: {name} con path {audio_path}")
 
-# Definisci il modello una volta
+# Build the MobileNet feature extractor once
 base_model = MobileNet(input_shape=(224, 224, 3), include_top=False, pooling='avg')
-net = cv2.dnn.readNetFromCaffe('/Users/niccolo/Desktop/aTale/aTale/model/deploy.prototxt', '/Users/niccolo/Desktop/aTale/aTale/model/mobilenet_iter_73000.caffemodel')
+net = cv2.dnn.readNetFromCaffe(
+    os.path.join(BASE_DIR, 'model', 'deploy.prototxt'),
+    os.path.join(BASE_DIR, 'model', 'mobilenet_iter_73000.caffemodel'),
+)
 
-# Configure upload folder
-UPLOAD_FOLDER = '/Users/niccolo/Desktop/aTale/aTale/uploads_obj/'
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads_obj')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-# Directory to store sound files
-SOUNDS_FOLDER = '/Users/niccolo/Desktop/aTale/aTale/recordings_obj'
+SOUNDS_FOLDER = os.path.join(BASE_DIR, 'recordings_obj')
 os.makedirs(SOUNDS_FOLDER, exist_ok=True)
 
 def save_frame(frame, i):
@@ -84,10 +90,10 @@ def predict(filepath):
     if img is None:
         return "Unknown"
 
-    with open('/Users/niccolo/Desktop/aTale/aTale/model/objencodings.pkl', 'rb') as f:
-            data = pickle.load(f)
-            encodings = data['encodings']
-            names = data['names']
+    with open(ENCODINGS_PATH, 'rb') as f:
+        data = pickle.load(f)
+        encodings = data['encodings']
+        names = data['names']
     embedding = extract_embedding(img)
 
     # Confronta l'embedding estratto con quelli esistenti
@@ -114,7 +120,12 @@ def index():
     return render_template('userObjClient.html')
 
 camera = cv2.VideoCapture(0)
+_state_lock = threading.Lock()
 recognized_item = "Unknown"
+
+def release_camera():
+    if camera.isOpened():
+        camera.release()
 
 def generate_frames():
     global recognized_item
@@ -126,19 +137,20 @@ def generate_frames():
         if not success:
             break
 
-        # Perform face detection and recognition every 2 seconds
         if time.time() - start_time >= 2:
             filepath = save_frame(frame, i)
             if filepath:
-                recognized_item = predict(filepath)
+                with _state_lock:
+                    recognized_item = predict(filepath)
             start_time = time.time()
             i += 1
 
-        # Encode frame as JPEG and yield to the client
         ret, buffer = cv2.imencode('.jpg', frame)
+        if not ret:
+            continue
         frame_bytes = buffer.tobytes()
         yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-        # Clear folder every 10 iterations to reduce disruption
+
         if i % 5 == 0:
             clear_folder(UPLOAD_FOLDER)
 
@@ -149,14 +161,20 @@ def video_feed():
 
 @app.route('/current_recognition')
 def current_recognition():
-    return recognized_item
+    with _state_lock:
+        return recognized_item
 
 @app.route('/play_sound/<string:name>')
 def play_sound(name):
-    data = read_json("/Users/niccolo/Desktop/aTale/aTale/matching_obj.json")
-    sound_file = data[name]
-    return send_file(sound_file, mimetype='audio/mpeg')
+    data = read_json(MATCHING_JSON)
+    sound_file = data.get(name)
+    if sound_file and os.path.isfile(sound_file):
+        return send_file(sound_file, mimetype='audio/mpeg')
+    return "Sound file not found", 404
 
 if __name__ == '__main__':
-    webbrowser.open("http://127.0.0.1:5003")
-    app.run(debug=True, port=5003)
+    try:
+        webbrowser.open("http://127.0.0.1:5003")
+        app.run(debug=True, port=5003, use_reloader=False)
+    finally:
+        release_camera()
